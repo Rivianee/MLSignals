@@ -1,11 +1,4 @@
-# ML Signal
-
-**Pesquisa de Machine Learning traduzida em skills acionáveis para produção.**
-
-ML Signal converte papers de ponta — NeurIPS, ICML, ICLR, arXiv — em **skills práticas**, escritas em Markdown, prontas para uso por engenheiros de ML, cientistas de dados e times que colocam modelos em produção de verdade.
-
-Aqui você não encontra resumos acadêmicos.  
-Você encontra **decisões operacionais**.
+# NewSkills
 
 ---
 
