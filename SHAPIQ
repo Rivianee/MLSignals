@@ -1,0 +1,90 @@
+Feature Coalitions com shapiq — Além do SHAP Individual
+Categoria: XAI · Interpretabilidade · Features
+Nível: Avançado
+Bibliotecas: shapiq
+Dataset de validação: correlated_features.csv
+Maturidade: Experimental
+
+O que é
+SHAP atribui importância a cada feature individualmente. Mas features raramente atuam sozinhas — grupos de features interagem para gerar uma decisão.
+shapiq calcula k-SII (Shapley Interaction Index): quanto cada par (ou tripla, ou grupo) de features contribui além da soma das contribuições individuais.
+SHAP individual:  feature_A = 1.39  |  feature_B = 0.22
+shapiq interação: A × B = +0.14  ← A e B juntos contribuem 0.14 além do que cada um contribui sozinho
+
+Como usar
+pythonimport shapiq
+from sklearn.ensemble import RandomForestRegressor
+
+rf = RandomForestRegressor(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+
+explainer = shapiq.TabularExplainer(
+    model=rf.predict,
+    data=X_train,     # dados de referência (background)
+    index="k-SII",    # Shapley Interaction Index
+    max_order=2       # até pares de features
+)
+
+# Explicar uma amostra
+interaction_values = explainer.explain(X_test[0], budget=512)
+
+# Acessar valores
+for combo, val in interaction_values.dict_values.items():
+    print(f"{combo}: {val:+.4f}")
+
+O que os dados mostram
+Testado no correlated_features.csv (só A e D importam de verdade; B e C são cópias de A):
+Importâncias individuais (k-SII ordem 1):
+feature_D                    : -1.5517  ← detectada corretamente
+feature_A                    : +1.3878  ← detectada corretamente
+feature_B_copy_of_A          : +0.2196  ← recebe alguma importância (diluição)
+feature_E_noise              : -0.0787
+feature_C_copy_of_A          : -0.0392
+Interações de 2ª ordem (pares além do individual):
+feature_D × feature_E_noise        : +0.1704  ← interação espúria (ruído)
+feature_A × feature_D              : +0.1448  ← interação real (ambas importam)
+feature_A × feature_B_copy_of_A   : +0.1396  ← alta interação entre A e sua cópia
+feature_B_copy_of_A × feature_D   : +0.0880
+O que a interação A×B revela: A e sua cópia têm interação forte — confirmando que são redundantes. Se você ver interação alta entre duas features, é um sinal de correlação ou multicolinearidade.
+
+Quanto custa
+python# budget = número de avaliações do modelo
+# Mais budget = mais preciso, mas mais lento
+
+explainer.explain(X[0], budget=128)   # rápido, menos preciso
+explainer.explain(X[0], budget=512)   # balanceado ← recomendado
+explainer.explain(X[0], budget=2048)  # preciso, lento para muitas features
+Com 5 features e budget=512: ~0.3s por amostra. Com 20+ features, escala rapidamente.
+
+Quando usar
+✅ Faz sentido:
+
+Debugar por que features correlacionadas têm importâncias estranhas no SHAP
+Identificar pares de features que só importam juntos (interações genuínas)
+Modelos de alto risco onde entender interações é regulatório
+
+⚠️ Use com cuidado:
+
+Com muitas features (> 15), max_order=2 pode ser lento — reduzir budget
+Interações de ordem > 2 existem mas são difíceis de interpretar
+
+❌ Não resolve:
+
+Causalidade — interação alta ≠ causa
+Não substitui remover features correlacionadas antes do treino
+
+
+Validação do código
+pythoniv = explainer.explain(X_test[0], budget=512)
+vals = list(iv.dict_values.values())
+
+assert len(vals) > 0, "Nenhum valor de interação calculado"
+assert any(isinstance(k, tuple) and len(k)==2
+           for k in iv.dict_values.keys()), "Sem interações de 2ª ordem"
+print(f"✅ {len(vals)} valores calculados | "
+      f"maior interação: {max(abs(v) for v in vals):.4f}")
+
+Links
+
+🔗 shapiq: github.com/mmschlk/shapiq
+📄 "Beyond Individual Attributions" — ICML 2025
